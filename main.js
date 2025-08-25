@@ -192,7 +192,7 @@ const locations = [
     name: "Joglo Wanagama",
     lat: -7.9115978485,
     lng: 110.5232889001,
-    img: "aset/joglo 4.jpg"
+    img: "aset/joglo 4.JPG"
   }
 ];
 
@@ -618,4 +618,5 @@ modal.addEventListener("click", (e) => {
     modal.classList.remove("active");
   }
 });
+
 

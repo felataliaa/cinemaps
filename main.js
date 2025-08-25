@@ -154,7 +154,7 @@ function closeModal() {
 }
 
 // Inisialisasi Peta
-const map = L.map('map').setView([-7.700, 110.455], 9);
+const map = L.map('map').setView([-7.878, 110.451], 9);
 
 const baseMaps = {
   "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -218,16 +218,38 @@ locations.forEach(loc => {
   const marker = L.marker([loc.lat, loc.lng]).addTo(map);
 
   const popupContent = `
-    <div style="text-align:center; max-width: 200px;">
-      <b style="font-size: 1.1rem;">${loc.name}</b><br>
-      <img src="${loc.img}" alt="${loc.name}" style="width:100%; border-radius: 0.5rem; margin: 0.5rem 0;" />
-      <button style="..." onclick="navigateWithGoogle(${loc.lat}, ${loc.lng})">Navigasi</button>
+    <div style="text-align:center; max-width: 220px; font-family: 'KKNhorror', sans-serif; letter-spacing: 1.5px;">
+      <b style="font-size: 1rem; color: #333; margin-bottom: 10px; display: block; letter-spacing: 1.2px;">${loc.name}</b>
+      <img src="${loc.img}" alt="${loc.name}" 
+           style="width:100%; max-width: 200px; height: 120px; object-fit: cover; border-radius: 8px; margin: 10px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.2);" />
+      <div style="margin-top: 15px;">
+        <button onclick="navigateWithGoogle(${loc.lat}, ${loc.lng})" 
+                style="background: linear-gradient(45deg, #918e8eff, #ff0707ff); 
+                       color: white; 
+                       border: none; 
+                       padding: 10px 20px; 
+                       border-radius: 25px; 
+                       cursor: pointer; 
+                       font-size: 14px; 
+                       font-weight: 600;
+                       box-shadow: 0 2px 8px rgba(66, 133, 244, 0.3);
+                       transition: all 0.3s ease;
+                       width: 100%;
+                       letter-spacing: 1.5px;"
+                onmouseover="this.style.transform='scale(1.05)'"
+                onmouseout="this.style.transform='scale(1)'">
+          📍Rute ke Lokasi
+        </button>
+      </div>
     </div>
   `;
-  marker.bindPopup(popupContent);
+  marker.bindPopup(popupContent, {
+    maxWidth: 250,
+    className: 'custom-popup'
+  });
 
   marker.on('click', () => {
-    map.flyTo([loc.lat, loc.lng], 15, { duration: 1.5 });
+    map.flyTo([loc.lat, loc.lng], 16, { duration: 1.5 });
   });
 });
 
@@ -249,24 +271,88 @@ locateBtn.onAdd = function () {
   };
   return div;
 };
-
 locateBtn.addTo(map);
 
 function navigateWithGoogle(lat, lng) {
+  // Deteksi jenis perangkat
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
   if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(pos => {
-      const userLat = pos.coords.latitude;
-      const userLng = pos.coords.longitude;
-      const url = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lng}&travelmode=driving`;
-      window.open(url, '_blank');
-    }, () => {
-      alert("Tidak dapat mengambil lokasi Anda.");
-    });
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const userLat = position.coords.latitude;
+        const userLng = position.coords.longitude;
+        
+        let mapsUrl;
+        
+        if (isMobile) {
+          // Untuk mobile - gunakan intent URL yang lebih kompatibel
+          const isAndroid = /Android/i.test(navigator.userAgent);
+          const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+          
+          if (isAndroid) {
+            // Android - coba Google Maps app dulu, fallback ke web
+            mapsUrl = `https://www.google.com/maps/dir/${userLat},${userLng}/${lat},${lng}/@${lat},${lng},15z`;
+            
+            // Alternatif dengan intent (jika ada Google Maps app)
+            const intentUrl = `google.navigation:q=${lat},${lng}`;
+            
+            // Coba buka app dulu, jika gagal buka web
+            const link = document.createElement('a');
+            link.href = intentUrl;
+            link.click();
+            
+            // Fallback ke web setelah delay singkat
+            setTimeout(() => {
+              window.open(mapsUrl, '_blank');
+            }, 1000);
+            
+          } else if (isIOS) {
+            // iOS - gunakan Apple Maps atau Google Maps web
+            mapsUrl = `https://maps.apple.com/?saddr=${userLat},${userLng}&daddr=${lat},${lng}`;
+            
+            // Alternatif Google Maps untuk iOS
+            const googleMapsUrl = `https://www.google.com/maps/dir/${userLat},${userLng}/${lat},${lng}`;
+            
+            // Tampilkan pilihan
+            if (confirm("Buka dengan Apple Maps? (Cancel untuk Google Maps)")) {
+              window.open(mapsUrl, '_blank');
+            } else {
+              window.open(googleMapsUrl, '_blank');
+            }
+          } else {
+            // Mobile lainnya - gunakan Google Maps web
+            mapsUrl = `https://www.google.com/maps/dir/${userLat},${userLng}/${lat},${lng}`;
+            window.open(mapsUrl, '_blank');
+          }
+        } else {
+          // Desktop - gunakan Google Maps web
+          mapsUrl = `https://www.google.com/maps/dir/${userLat},${userLng}/${lat},${lng}/@${lat},${lng},15z`;
+          window.open(mapsUrl, '_blank');
+        }
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        // Fallback tanpa lokasi user
+        const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+        window.open(mapsUrl, '_blank');
+        
+        // Tampilkan pesan error yang user-friendly
+        showNotification('Tidak dapat mengakses lokasi Anda. Menampilkan lokasi tujuan saja.', 'info');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000 // 5 menit
+      }
+    );
   } else {
-    alert("Browser tidak mendukung geolokasi.");
+    // Browser tidak mendukung geolocation
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    window.open(mapsUrl, '_blank');
+    showNotification('Browser tidak mendukung geolokasi. Menampilkan lokasi tujuan.', 'info');
   }
 }
-
 // Scroll animations with enhanced intersection observer
 document.addEventListener("DOMContentLoaded", function () {
   const animElements = document.querySelectorAll(

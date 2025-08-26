@@ -192,7 +192,7 @@ const locations = [
     name: "Joglo Wanagama",
     lat: -7.9115978485,
     lng: 110.5232889001,
-    img: "aset/joglo 4.jpg"
+    img: "aset/joglo 1.jpg"
   }
 ];
 
@@ -275,77 +275,25 @@ locateBtn.addTo(map);
 
 function navigateWithGoogle(lat, lng) {
   const dest = `${lat},${lng}`;
-
-  // helper bikin URL universal Google Maps (API=1)
-  const buildUniversalUrl = (origin) => {
-    if (origin) {
-      return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}`;
-    }
-    return `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
-  };
-
   const ua = navigator.userAgent || "";
-
-  // Jika bisa dapatkan origin user, pakai sebagai titik awal
-  const openWithOriginOrFallback = (originStr) => {
-    const url = buildUniversalUrl(originStr);
-    window.open(url, "_blank");
-  };
-  const tryIOSAppThenFallback = (originStr) => {
-    const appUrl = `comgooglemaps://?daddr=${dest}&directionsmode=driving`;
-    const fallbackUrl = buildUniversalUrl(originStr);
-
-    // Trik “silent attempt”
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    iframe.src = appUrl;
-    document.body.appendChild(iframe);
-
-    // Fallback setelah jeda singkat
-    setTimeout(() => {
-      document.body.removeChild(iframe);
-      window.open(fallbackUrl, "_blank");
-    }, 700);
-  };
-
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
 
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const origin = `${pos.coords.latitude},${pos.coords.longitude}`;
-        if (isIOS) {
-          // iOS: coba buka app, lalu fallback ke universal
-          tryIOSAppThenFallback(origin);
-        } else {
-          // Android & Desktop: langsung universal (app akan diambil alih jika ada)
-          openWithOriginOrFallback(origin);
-        }
-      },
-      (err) => {
-        console.error("Geolocation error:", err);
-        // Jika gagal dapat origin, tetap buka tujuan (iOS/Android/Desktop)
-        if (isIOS) {
-          tryIOSAppThenFallback(null);
-        } else {
-          openWithOriginOrFallback(null);
-        }
-        showNotification("Tidak dapat mengakses lokasi Anda. Menampilkan rute ke tujuan saja.", "info");
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000, // 5 menit
-      }
-    );
+  if (isIOS) {
+    // iOS → coba buka aplikasi Google Maps dulu
+    const appUrl = `comgooglemaps://?daddr=${dest}&directionsmode=driving`;
+    const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
+
+    // Harus pakai window.location supaya dianggap klik user
+    window.location = appUrl;
+
+    // Kalau app tidak ada, fallback ke browser setelah 1 detik
+    setTimeout(() => {
+      window.location = fallbackUrl;
+    }, 1000);
   } else {
-    // Tanpa geolokasi: langsung ke tujuan (iOS/Android/Desktop)
-    if (isIOS) {
-      tryIOSAppThenFallback(null);
-    } else {
-      openWithOriginOrFallback(null);
-    }
-    showNotification("Browser tidak mendukung geolokasi. Menampilkan rute ke tujuan.", "info");
+    // Android & Desktop → langsung buka Google Maps web
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
+    window.open(url, "_blank");
   }
 }
 
